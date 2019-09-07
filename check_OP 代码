@@ -1,0 +1,93 @@
+options validvarname=any;/*导入数据，确定可以使用中文变量 */
+proc import datafile = "C:\Users\GaryHo\Desktop
+\SAS骨质疏松项目入组情况分析表.xlsx" dbms = excel out = test;
+sheet = "sheet1";
+run;
+
+proc contents data=test;/*查看数据中变量的属性，长度和标签 */
+run;
+
+/*查看截止到今日所有入组人数 */
+
+proc means data=test maxdec=0 n sum;
+title "截止到今日入组汇总情况";
+title2 "As of &systime &sysday &sysdate";
+title3 "Using SAS Version: &sysver";
+class type_check;
+var number;
+run;
+
+
+
+
+%macro daily;
+/*每天观察入组人数情况 */
+title "截止到今日 所有入组人数情况";
+title2 "As of &systime &sysday &sysdate";
+title3 "Using SAS Version: &sysver";
+proc means data=test maxdec=0 n sum;
+class type_check;
+var number;
+run;
+
+title "今日入组人数情况";
+title2 "Daily number Report for &sysdate";
+proc means data=test(where=(data_number=today()))
+maxdec=0 sum;
+class type_check;
+var number;
+run;
+
+/*如果到了周五，自动汇总这一周入组人数情况 */
+
+%if &sysday=Friday %then %do;
+
+title "本周入组人数情况";
+title2 "Weekly number Report Week Ending &sysdate";
+
+proc means data=test
+(where=(today()-6 le data_number le today()))
+sum maxdec=0;
+class type_check;
+var number;
+run;
+%end;
+%mend daily;
+%daily
+
+/*分别提取每个月入组数据，并另建为新的数据集 */
+%macro month_number_sets;
+data
+%do i=1 %to 12;
+month&i
+%end;
+;
+set test;
+mo_number=month(date_number);
+if mo_number=1 then output month1;
+%do i=2 %to 12;
+else if mo_number=&i then output month&i;
+%end;
+run;
+%mend month_number_sets;
+%month_number_sets
+
+
+/*针对不同site入组数据，主要应对不同数据集情况。
+
+检查数据集的存在，以及查找数据集中的观察数量。*/
+%macro dsreport(dsname);
+%let dsid=%sysfunc(open(&dsname));
+%let nobs=%sysfunc(attrn(&dsid,nobs));
+%let when = %sysfunc(putn(
+%sysfunc(attrn(&dsid,crdte)),datetime9.));
+%let rc=%sysfunc(close(&dsid));
+title "Report on Data Set &dsname";
+title2 "Num Obs: &nobs Date Created: &when";
+proc means data=&dsname sum maxdec=0;
+class type_check;
+var number;
+run;
+%mend dsreport;
+%dsreport(test)
+
