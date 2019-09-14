@@ -7,7 +7,7 @@ run;
 proc contents data=test;/*查看数据中变量的属性，长度和标签 */
 run;
 
-/*查看截止到今日所有入组人数 */
+/*查看截止到今日所有入组人数，并且出入当日日期时间 */
 
 proc means data=test maxdec=0 n sum;
 title "截止到今日入组汇总情况";
